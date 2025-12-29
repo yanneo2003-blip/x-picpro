@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>社交海报工作室</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- html-to-image -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+
+    <!-- Fonts: Inter for UI, Noto for Content -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans SC"', 'sans-serif'],
+                        serif: ['"Noto Serif SC"', 'serif'],
+                        ui: ['"Inter"', 'sans-serif'],
+                    },
+                    colors: {
+                        'swiss-white': '#FFFFFF',
+                        'swiss-offwhite': '#FAFAFA',
+                        'swiss-border': '#E5E5E5',
+                        'swiss-text': '#171717',
+                        'swiss-sub': '#737373',
+                    },
+                    boxShadow: {
+                        'premium': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'float': '0 20px 40px -10px rgba(0,0,0,0.08)',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* 自定义工具类 */
+        body { font-family: 'Inter', "Noto Sans SC", sans-serif; -webkit-font-smoothing: antialiased; }
+        
+        /* 隐藏滚动条 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* 输入框样式 */
+        .input-premium {
+            background-color: #FAFAFA;
+            border: 1px solid #E5E5E5;
+            color: #171717;
+            transition: all 0.2s ease;
+        }
+        .input-premium:focus {
+            background-color: #FFFFFF;
+            border-color: #A3A3A3;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(0,0,0,0.05);
+        }
+
+        /* 分段控制器逻辑 */
+        .segment-input:checked + label {
+            background-color: #FFFFFF;
+            color: #171717;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            font-weight: 500;
+        }
+        
+        /* 预览画布背景 */
+        .canvas-bg {
+            background-color: #F5F5F5;
+            background-image: 
+                linear-gradient(45deg, #EBEBEB 25%, transparent 25%), 
+                linear-gradient(-45deg, #EBEBEB 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #EBEBEB 75%), 
+                linear-gradient(-45deg, transparent 75%, #EBEBEB 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+    </style>
+</head>
+<body class="bg-white h-[100dvh] flex flex-col text-swiss-text overflow-hidden">
+
+    <!-- 顶部导航 -->
+    <header class="h-16 bg-white/80 backdrop-blur-md border-b border-swiss-border flex items-center justify-between px-6 shrink-0 z-40">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-bold text-lg tracking-tighter">P.</div>
+            <span class="font-ui font-medium tracking-tight">Studio</span>
+        </div>
+        
+        <!-- 视图切换 (修改：圆角改为 rounded-full) -->
+        <div class="flex bg-swiss-offwhite p-1 rounded-full border border-swiss-border">
+            <button onclick="switchTab('editor')" id="tab-editor" class="px-6 py-1.5 rounded-full text-sm font-medium transition-all duration-200 bg-white shadow-sm text-black">
+                编辑
+            </button>
+            <button onclick="switchTab('preview')" id="tab-preview" class="px-6 py-1.5 rounded-full text-sm font-medium transition-all duration-200 text-swiss-sub hover:text-black">
+                预览
+            </button>
+        </div>
+
+        <div class="w-[88px] flex justify-end">
+            <!-- 移动端导出按钮 -->
+             <button onclick="downloadPoster()" class="text-swiss-text hover:text-black md:hidden">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+             </button>
+        </div>
+    </header>
+
+    <!-- 主工作区 -->
+    <div class="flex-1 relative overflow-hidden flex">
+        
+        <!-- 左侧：编辑面板 -->
+        <div id="view-editor" class="w-full h-full overflow-y-auto no-scrollbar bg-white pb-32 pt-2">
+            <div class="max-w-xl mx-auto px-6 py-8 space-y-10">
+                
+                <!-- 模块：视觉风格 -->
+                <section class="space-y-6">
+                    <div class="flex items-center gap-2 mb-2">
+                        <svg class="w-4 h-4 text-swiss-sub" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+                        <h3 class="text-xs font-semibold text-swiss-sub uppercase tracking-widest">视觉风格</h3>
+                    </div>
+                    
+                    <!-- 字体与排版控制组 -->
+                    <div class="grid grid-cols-1 gap-6 p-6 bg-swiss-offwhite rounded-2xl border border-swiss-border">
+                        
+                        <!-- 字体选择 -->
+                        <div class="space-y-3">
+                            <label class="text-xs font-medium text-swiss-sub">字体</label>
+                            <div class="flex bg-swiss-border/50 p-1 rounded-lg">
+                                <div class="flex-1 relative">
+                                    <input type="radio" name="fontFamily" value="font-sans" id="font-sans" checked onchange="updateTypography()" class="segment-input peer sr-only">
+                                    <label for="font-sans" class="flex items-center justify-center w-full py-2 rounded-md text-xs text-swiss-sub cursor-pointer transition-all hover:text-black">
+                                        <span class="font-sans">黑体 (Sans)</span>
+                                    </label>
+                                </div>
+                                <div class="flex-1 relative">
+                                    <input type="radio" name="fontFamily" value="font-serif" id="font-serif" onchange="updateTypography()" class="segment-input peer sr-only">
+                                    <label for="font-serif" class="flex items-center justify-center w-full py-2 rounded-md text-xs text-swiss-sub cursor-pointer transition-all hover:text-black">
+                                        <span class="font-serif">宋体 (Serif)</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 字号与间距 -->
+                        <div class="grid grid-cols-2 gap-6">
+                            <!-- 字号 -->
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center">
+                                    <label class="text-xs font-medium text-swiss-sub">字号</label>
+                                    <span id="auto-badge" class="hidden text-[10px] bg-black text-white px-1.5 rounded">AUTO</span>
+                                </div>
+                                <div class="flex bg-swiss-border/50 p-1 rounded-lg">
+                                    <div class="flex-1">
+                                        <input type="radio" name="fontSize" value="text-lg" id="size-sm" onchange="updateTypography()" class="segment-input sr-only">
+                                        <label for="size-sm" class="block text-center py-2 rounded-md text-xs text-swiss-sub cursor-pointer transition-all">小</label>
+                                    </div>
+                                    <div class="flex-1">
+                                        <input type="radio" name="fontSize" value="text-xl" id="size-md" checked onchange="updateTypography()" class="segment-input sr-only">
+                                        <label for="size-md" class="block text-center py-2 rounded-md text-xs text-swiss-sub cursor-pointer transition-all">中</label>
+                                    </div>
+                                    <div class="flex-1">
+                                        <input type="radio" name="fontSize" value="text-2xl" id="size-lg" onchange="updateTypography()" class="segment-input sr-only">
+                                        <label for="size-lg" class="block text-center py-2 rounded-md text-xs text-swiss-sub cursor-pointer transition-all">大</label>
+                                    </div>
+                                    <div class="flex-1">
+                                        <input type="radio" name="fontSize" value="auto" id="size-auto" onchange="updateTypography()" class="segment-input sr-only">
+                                        <label for="size-auto" class="block text-center py-2 rounded-md text-xs text-swiss-sub cursor-pointer transition-all text-orange-600 font-bold" title="根据字数自动调整">
+                                            <svg class="w-3 h-3 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 间距 -->
+                            <div class="space-y-3">
+                                <label class="text-xs font-medium text-swiss-sub">密度</label>
+                                <div class="flex bg-swiss-border/50 p-1 rounded-lg">
+                                    <div class="flex-1">
+                                        <input type="radio" name="spacing" value="tight" id="den-tight" onchange="updateTypography()" class="segment-input sr-only">
+                                        <label for="den-tight" class="flex items-center justify-center py-2 rounded-md text-xs text-swiss-sub cursor-pointer transition-all">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+                                        </label>
+                                    </div>
+                                    <div class="flex-1">
+                                        <input type="radio" name="spacing" value="normal" id="den-norm" checked onchange="updateTypography()" class="segment-input sr-only">
+                                        <label for="den-norm" class="flex items-center justify-center py-2 rounded-md text-xs text-swiss-sub cursor-pointer transition-all">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                                        </label>
+                                    </div>
+                                    <div class="flex-1">
+                                        <input type="radio" name="spacing" value="loose" id="den-loose" onchange="updateTypography()" class="segment-input sr-only">
+                                        <label for="den-loose" class="flex items-center justify-center py-2 rounded-md text-xs text-swiss-sub cursor-pointer transition-all">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 18h16"></path></svg>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+                <hr class="border-swiss-border">
+
+                <!-- 模块：内容编辑 -->
+                <section class="space-y-6">
+                    <div class="flex items-center gap-2 mb-2">
+                        <svg class="w-4 h-4 text-swiss-sub" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        <h3 class="text-xs font-semibold text-swiss-sub uppercase tracking-widest">核心内容</h3>
+                    </div>
+
+                    <!-- 用户信息 -->
+                    <div class="flex gap-4">
+                        <div class="w-16 h-16 shrink-0 rounded-2xl bg-swiss-offwhite border border-swiss-border overflow-hidden relative group cursor-pointer shadow-sm hover:border-swiss-sub transition-colors">
+                            <img id="avatar-preview-control" src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix" class="w-full h-full object-cover">
+                            <input type="file" accept="image/*" onchange="handleAvatarUpload(this)" class="absolute inset-0 opacity-0 cursor-pointer z-10">
+                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                                替换
+                            </div>
+                        </div>
+                        <div class="flex-1 space-y-3">
+                            <input type="text" class="input-premium w-full px-4 py-2.5 rounded-lg text-sm" placeholder="用户名" value="设计灵感酱" oninput="updateText('username', this.value)">
+                            <input type="text" class="input-premium w-full px-4 py-2.5 rounded-lg text-sm font-mono text-xs" placeholder="@用户ID" value="Design_Daily" oninput="updateText('userid', this.value)">
+                        </div>
+                    </div>
+
+                    <!-- 正文 -->
+                    <div class="space-y-4">
+                        <input type="text" class="input-premium w-full px-4 py-3 rounded-lg font-bold text-sm" placeholder="笔记标题" value="笔记详情" oninput="updateText('page-title', this.value)">
+                        
+                        <textarea id="input-content" class="input-premium w-full px-4 py-3 rounded-lg h-48 resize-none text-sm leading-relaxed" placeholder="在此输入正文内容..." oninput="updateText('content', this.value)">今天的UI设计灵感分享：
+如何用简单的排版创造高级感？
+
+1. 留白是呼吸，不要填满每个角落。
+2. 字体层级要分明，标题和正文拉开差距。
+3. 选用低饱和度的背景色，让内容更聚焦。
+
+#UI设计 #排版技巧 #设计灵感</textarea>
+                    </div>
+
+                    <!-- 底部数据 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" class="input-premium w-full px-4 py-2.5 rounded-lg text-sm text-swiss-sub" placeholder="发布时间 · 浏览量" value="2小时前 · 1.2w 浏览" oninput="updateText('meta', this.value)">
+                    </div>
+
+                    <!-- 互动统计 -->
+                    <div class="grid grid-cols-4 gap-3">
+                         <div class="space-y-1">
+                             <label class="text-[10px] text-swiss-sub font-semibold tracking-wide block text-center">转发</label>
+                             <input type="text" class="input-premium w-full px-1 py-2 text-center rounded-lg text-sm" value="128" oninput="updateStat('stat-share', this.value)">
+                         </div>
+                         <div class="space-y-1">
+                             <label class="text-[10px] text-swiss-sub font-semibold tracking-wide block text-center">引用</label>
+                             <input type="text" class="input-premium w-full px-1 py-2 text-center rounded-lg text-sm" value="45" oninput="updateStat('stat-quote', this.value)">
+                         </div>
+                         <div class="space-y-1">
+                             <label class="text-[10px] text-swiss-sub font-semibold tracking-wide block text-center">点赞</label>
+                             <input type="text" class="input-premium w-full px-1 py-2 text-center rounded-lg text-sm" value="2.4w" oninput="updateStat('stat-like', this.value)">
+                         </div>
+                         <div class="space-y-1">
+                             <label class="text-[10px] text-swiss-sub font-semibold tracking-wide block text-center">收藏</label>
+                             <input type="text" class="input-premium w-full px-1 py-2 text-center rounded-lg text-sm" value="998" oninput="updateStat('stat-save', this.value)">
+                         </div>
+                    </div>
+
+                </section>
+            </div>
+        </div>
+
+        <!-- 右侧：预览画布 -->
+        <div id="view-preview" class="hidden absolute inset-0 z-10 w-full h-full bg-[#111] md:relative md:block md:bg-gray-100 flex flex-col justify-center items-center">
+             
+            <div id="preview-wrapper" class="w-full h-full flex justify-center items-center p-8 canvas-bg relative overflow-hidden">
+                
+                <div id="preview-scaler" class="shadow-float">
+                    <!-- 海报节点 (600x800) -->
+                    <!-- 默认 bg-white, 文本 swis-text -->
+                    <div id="poster-node" class="bg-white font-sans relative flex flex-col overflow-hidden w-[600px] h-[800px] transition-colors duration-500">
+                        
+                        <!-- 1. 顶部栏 -->
+                        <div class="h-20 px-8 flex items-center justify-between shrink-0">
+                            <button class="text-gray-800 opacity-60">
+                                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                            </button>
+                            <h2 id="display-page-title" class="text-xl font-bold text-gray-800 tracking-wide opacity-90">笔记详情</h2>
+                            <button class="text-gray-800 opacity-60">
+                                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"></path></svg>
+                            </button>
+                        </div>
+
+                        <!-- 2. 用户信息 -->
+                        <div class="px-8 py-2 flex items-center justify-between shrink-0">
+                            <div class="flex items-center gap-4">
+                                <div class="w-14 h-14 rounded-full p-[2px] border border-black/10 bg-white">
+                                    <img id="display-avatar" src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix" class="w-full h-full rounded-full object-cover">
+                                </div>
+                                <div class="flex flex-col">
+                                    <span id="display-username" class="font-bold text-xl text-text-main leading-none mb-1.5">设计灵感酱</span>
+                                    <span class="text-sm text-text-sub font-normal tracking-wide opacity-60">ID: <span id="display-userid">Design_Daily</span></span>
+                                </div>
+                            </div>
+                            <!-- 按钮固定为深色 -->
+                            <button class="bg-gray-900 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg shadow-gray-500/20 tracking-wide transform transition hover:scale-105">
+                                关注
+                            </button>
+                        </div>
+
+                        <!-- 3. 正文区域 -->
+                        <!-- 增加 pt-12 和 pb-12 以避开引号 -->
+                        <div class="px-10 mt-6 flex-1 overflow-hidden relative flex flex-col">
+                            <!-- 装饰：顶部引号 (位置调整，更靠内) -->
+                            <div class="absolute top-0 left-4 text-7xl text-black/5 font-serif leading-none select-none z-0">“</div>
+                            
+                            <!-- 正文 -->
+                            <div id="content-container" class="relative z-10 flex-1 flex flex-col pt-12 pb-12">
+                                <div id="display-content" class="text-text-main font-normal whitespace-pre-wrap transition-all duration-300 text-xl leading-relaxed tracking-wide">
+                                    今天的UI设计灵感分享：
+                                    如何用简单的排版创造高级感？
+
+                                    1. 留白是呼吸，不要填满每个角落。
+                                    2. 字体层级要分明，标题和正文拉开差距。
+                                    3. 选用低饱和度的背景色，让内容更聚焦。
+
+                                    #UI设计 #排版技巧 #设计灵感
+                                </div>
+                            </div>
+
+                            <!-- 装饰：底部引号 (位置调整，更靠内) -->
+                            <div class="absolute bottom-4 right-8 text-7xl text-black/5 font-serif transform rotate-180 leading-none select-none z-0">“</div>
+                        </div>
+
+                        <!-- 4. 底部信息 -->
+                        <div class="px-8 pb-6 mt-auto shrink-0 z-20">
+                            <div id="display-meta" class="text-sm text-black/40 mb-8 font-medium tracking-wide">
+                                2小时前 · 1.2w 浏览
+                            </div>
+
+                            <div class="border-t border-black/5 pt-6 pb-2">
+                                <div class="flex items-center justify-between text-text-main">
+                                    <div class="flex flex-col items-center w-1/4 border-r border-black/5">
+                                        <span id="display-stat-share" class="font-bold text-xl mb-1">128</span>
+                                        <span class="text-xs text-black/40 font-medium tracking-wider">转发</span>
+                                    </div>
+                                    <div class="flex flex-col items-center w-1/4 border-r border-black/5">
+                                        <span id="display-stat-quote" class="font-bold text-xl mb-1">45</span>
+                                        <span class="text-xs text-black/40 font-medium tracking-wider">引用</span>
+                                    </div>
+                                    <div class="flex flex-col items-center w-1/4 border-r border-black/5">
+                                        <span id="display-stat-like" class="font-bold text-xl mb-1">2.4w</span>
+                                        <span class="text-xs text-black/40 font-medium tracking-wider">点赞</span>
+                                    </div>
+                                    <div class="flex flex-col items-center w-1/4">
+                                        <span id="display-stat-save" class="font-bold text-xl mb-1">998</span>
+                                        <span class="text-xs text-black/40 font-medium tracking-wider">收藏</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 5. 底部 Tab Bar -->
+                        <div class="h-20 px-10 bg-white/40 backdrop-blur-xl border-t border-white/40 flex items-center justify-between shrink-0 mb-6 mx-6 rounded-3xl shadow-sm z-20">
+                            <div class="opacity-60 hover:opacity-100 transition-opacity"><svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg></div>
+                            <div class="opacity-60 hover:opacity-100 transition-opacity"><svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg></div>
+                            <div class="text-red-500 w-12 h-12 rounded-full bg-red-50 flex items-center justify-center shadow-sm transform hover:scale-110 transition-transform"><svg class="w-7 h-7 fill-current" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg></div>
+                            <div class="opacity-60 hover:opacity-100 transition-opacity"><svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg></div>
+                            <div class="opacity-60 hover:opacity-100 transition-opacity"><svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 悬浮下载按钮 (桌面端) -->
+                <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2">
+                    <button onclick="downloadPoster()" id="download-btn-preview" class="group flex items-center gap-3 bg-black text-white pl-6 pr-8 py-4 rounded-full shadow-2xl hover:bg-gray-900 transition-all hover:-translate-y-1">
+                        <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        </div>
+                        <span class="font-medium tracking-wide">导出海报</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 视图切换逻辑 ---
+        function switchTab(tab) {
+            const editorView = document.getElementById('view-editor');
+            const previewView = document.getElementById('view-preview');
+            const tabEditor = document.getElementById('tab-editor');
+            const tabPreview = document.getElementById('tab-preview');
+
+            if (tab === 'editor') {
+                editorView.classList.remove('hidden');
+                if (window.innerWidth < 768) previewView.classList.add('hidden');
+                
+                tabEditor.classList.add('bg-white', 'shadow-sm', 'text-black');
+                tabEditor.classList.remove('text-swiss-sub');
+                tabPreview.classList.remove('bg-white', 'shadow-sm', 'text-black');
+                tabPreview.classList.add('text-swiss-sub');
+                
+            } else {
+                if (window.innerWidth < 768) editorView.classList.add('hidden');
+                previewView.classList.remove('hidden');
+
+                tabPreview.classList.add('bg-white', 'shadow-sm', 'text-black');
+                tabPreview.classList.remove('text-swiss-sub');
+                tabEditor.classList.remove('bg-white', 'shadow-sm', 'text-black');
+                tabEditor.classList.add('text-swiss-sub');
+
+                setTimeout(fitPreview, 50);
+            }
+        }
+
+        // --- 缩放适配逻辑 ---
+        function fitPreview() {
+            const wrapper = document.getElementById('preview-wrapper');
+            const scaler = document.getElementById('preview-scaler');
+            
+            if (wrapper.offsetParent === null) return;
+
+            const padding = 60;
+            const wrapperWidth = wrapper.clientWidth - padding;
+            const wrapperHeight = wrapper.clientHeight - padding;
+            
+            const nodeWidth = 600;
+            const nodeHeight = 800;
+
+            const scaleX = wrapperWidth / nodeWidth;
+            const scaleY = wrapperHeight / nodeHeight;
+            const scale = Math.min(scaleX, scaleY, 1);
+
+            scaler.style.transform = `scale(${scale})`;
+            scaler.style.transformOrigin = 'center center';
+            scaler.style.width = `${nodeWidth}px`;
+            scaler.style.height = `${nodeHeight}px`;
+        }
+
+        window.addEventListener('resize', fitPreview);
+        window.addEventListener('load', () => {
+             fitPreview();
+             if(window.innerWidth >= 768) {
+                 document.getElementById('view-preview').classList.remove('hidden');
+             }
+        });
+
+        // --- 排版与字体控制 ---
+        function updateTypography() {
+            const poster = document.getElementById('poster-node');
+            const content = document.getElementById('display-content');
+            const autoBadge = document.getElementById('auto-badge');
+
+            // 1. 字体风格
+            const fontVal = document.querySelector('input[name="fontFamily"]:checked').value;
+            poster.classList.remove('font-sans', 'font-serif');
+            poster.classList.add(fontVal);
+
+            // 2. 字号控制 (含自动逻辑)
+            const sizeVal = document.querySelector('input[name="fontSize"]:checked').value;
+            
+            // 重置字号类
+            content.classList.remove('text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl', 'text-base', 'text-sm');
+            
+            if (sizeVal === 'auto') {
+                autoBadge.classList.remove('hidden');
+                autoResizeText(); // 执行自动调整
+            } else {
+                autoBadge.classList.add('hidden');
+                content.classList.add(sizeVal);
+            }
+
+            // 3. 间距密度
+            const spacingVal = document.querySelector('input[name="spacing"]:checked').value;
+            content.classList.remove(
+                'leading-tight', 'leading-relaxed', 'leading-loose',
+                'tracking-normal', 'tracking-wide', 'tracking-widest'
+            );
+
+            if (spacingVal === 'tight') {
+                content.classList.add('leading-tight', 'tracking-normal'); 
+            } else if (spacingVal === 'normal') {
+                content.classList.add('leading-relaxed', 'tracking-wide');
+            } else if (spacingVal === 'loose') {
+                content.classList.add('leading-loose', 'tracking-widest'); 
+            }
+        }
+
+        // --- 核心算法：自动字号调整 ---
+        function autoResizeText() {
+            const container = document.getElementById('content-container');
+            const content = document.getElementById('display-content');
+            
+            // 可用高度 = 容器高度 - 上下内边距
+            // 这里我们简单使用容器 clientHeight，因为 container 设为 flex-1 会占据剩余空间
+            // 实际上需要一个最大高度限制，我们假设内容区不应超过海报高度的 50% 或填满剩余空间
+            // 由于 content-container 是 flex-1，它的高度就是剩余可用空间。
+            
+            const maxH = container.clientHeight;
+            
+            // 候选字号列表 (从大到小)
+            const sizes = ['text-3xl', 'text-2xl', 'text-xl', 'text-lg', 'text-base', 'text-sm'];
+            
+            // 先移除所有可能的大小类
+            content.classList.remove(...sizes);
+            
+            // 迭代寻找合适的字号
+            for (let size of sizes) {
+                content.classList.add(size);
+                // 检查是否溢出 (scrollHeight > clientHeight)
+                // 注意：由于父级是 flex 且 overflow hidden，我们需要比较 scrollHeight 和 offsetHeight
+                if (content.scrollHeight <= maxH) {
+                    return; // 找到合适大小，停止
+                }
+                content.classList.remove(size); // 太大了，移除，试下一个
+            }
+            
+            // 如果都放不下，保留最小号
+            content.classList.add('text-sm');
+        }
+
+        // --- 内容更新 ---
+        function updateText(type, value) {
+            const el = document.getElementById(`display-${type}`);
+            if (el) {
+                if (type === 'content') {
+                    el.textContent = value;
+                    // 如果当前是自动模式，触发重算
+                    const sizeVal = document.querySelector('input[name="fontSize"]:checked').value;
+                    if (sizeVal === 'auto') {
+                        // 稍微延迟等待 DOM 渲染文本
+                        setTimeout(autoResizeText, 0);
+                    }
+                }
+                else el.innerText = value;
+            }
+        }
+
+        function updateStat(id, value) {
+            document.getElementById(`display-${id}`).innerText = value;
+        }
+
+        function handleAvatarUpload(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('display-avatar').src = e.target.result;
+                    document.getElementById('avatar-preview-control').src = e.target.result;
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // --- 导出逻辑 ---
+        function downloadPoster() {
+            const node = document.getElementById('poster-node');
+            const btn = document.getElementById('download-btn-preview');
+            const originalContent = btn ? btn.innerHTML : '';
+            
+            if(btn) {
+                btn.innerHTML = `<span class="animate-pulse">生成中...</span>`;
+                btn.disabled = true;
+            }
+
+            setTimeout(() => {
+                htmlToImage.toPng(node, {
+                    quality: 1.0,
+                    pixelRatio: 3,
+                    width: 600,
+                    height: 800,
+                    style: { transform: 'none' }
+                })
+                .then(function (dataUrl) {
+                    const link = document.createElement('a');
+                    link.download = `poster-${Date.now()}.png`;
+                    link.href = dataUrl;
+                    link.click();
+                    
+                    if(btn) {
+                        btn.innerHTML = originalContent;
+                        btn.disabled = false;
+                    }
+                })
+                .catch(function (error) {
+                    console.error('Error:', error);
+                    alert('导出失败，请重试');
+                    if(btn) {
+                        btn.innerHTML = originalContent;
+                        btn.disabled = false;
+                    }
+                });
+            }, 100);
+        }
+
+        // 初始化
+        updateTypography();
+    </script>
+</body>
+</html>
+
+
+
